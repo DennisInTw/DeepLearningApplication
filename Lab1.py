@@ -12,6 +12,7 @@ import numpy as np
 import time
 
 ##################################################################################
+# 2022/10/11
 # Lab1 description :
 # 1. Create another thread, subscriber thread, to receive the data from publisher
 # 2. Receive 10 images from broker to determine intrinsic parameters
@@ -79,11 +80,13 @@ class Client(threading.Thread):
             self.client.loop_stop()
 
 
-# use this function to decode msg from server
-# [Description]
-# This function will convert the received string (i.e. data) to bytes by base64.b64decode()
-# Then, use pickle’s load method to convert from a bytes-array type back to the original object
-# Last, read an image from a buffer in memory
+"""
+use this function to decode msg from server
+[Description]
+   This function will convert the received string (i.e. data) to bytes by base64.b64decode()
+   Then, use pickle’s load method to convert from a bytes-array type back to the original object
+   Last, read an image from a buffer in memory
+"""
 def coverToCV2(data):
     imdata = base64.b64decode(data)
     buf = pickle.loads(imdata)
@@ -91,7 +94,9 @@ def coverToCV2(data):
     return image
 
 
-# save config to './config'
+"""
+save config to './config'
+"""
 def saveConfig(cfg_file, config):
     try:
         with open(cfg_file, 'w') as configfile:
@@ -101,9 +106,11 @@ def saveConfig(cfg_file, config):
         sys.exit()
 
 
-# load config from './config'
-# [Description]
-# This function will read ./config as dict type by configparser.ConfigParser()
+"""
+load config from './config'
+[Description]
+   This function will read ./config as dict type by configparser.ConfigParser()
+"""
 def loadConfig(cfg_file):
     try:
         config = configparser.ConfigParser()
@@ -115,12 +122,14 @@ def loadConfig(cfg_file):
         sys.exit()
     return config
 
-# [Description]
-# This function will determine intrinsic parameters of camera
-# First, define the real world coordinates of each corners
-# Second, use cv2.findChessboardCorners() to get coordinates of corners in the images
-# Third, determine intrinsic parameters of camera
-# Fourth, set alpha=0 to get an undistorted image with minimum unwanted pixels, and also get new intrinsic parameters for that new image
+"""
+This function will determine intrinsic parameters of camera
+[Description]
+   First, define the real world coordinates of each corners
+   Second, use cv2.findChessboardCorners() to get coordinates of corners in the images
+   Third, determine intrinsic parameters of camera
+   Fourth, set alpha=0 to get an undistorted image with minimum unwanted pixels, and also get new intrinsic parameters for that new image
+"""
 def calculateIntrinsic():
     config_file = './config'
     cameraCfg = loadConfig(config_file)
@@ -157,16 +166,18 @@ def calculateIntrinsic():
         # If find desired number of corners, then ret will be True; otherwise, will be false
         # In this lab case, it should be 7x7 = 49
         ret, corners = cv2.findChessboardCorners(gray, (corner_x, corner_y), None)
-        #print(corners[0])
+
         if ret == True:
             ## @TODO:for more accurate
-            refined_corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-            print(refined_corners)
+            # winSize = (5, 5) for the search window
+            # zeroZone = (-1, -1)
+            # We change winSize to get a bit of different result
+            refined_corners = cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), criteria)
             ##
             objpoints.append(objp)
-            imgpoints.append(corners)
+            #imgpoints.append(corners)
             # @TODO: for more accurate
-            #imgpoints.append(refined_corners)
+            imgpoints.append(refined_corners)
 
 
     # width  => img.shape[1]
@@ -176,7 +187,7 @@ def calculateIntrinsic():
     # TODO14: get camera matrix and dist matrix by opencv
     # Camera is fixed, so get intrinsic matrix, lens distortion coef. and rotation/translation vectors
     # Actually, I have no idea why we don't need to use rvecs and tvecs
-    # Even if the official tutorial doesn't describe
+    # The official tutorial doesn't describe more, either
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
 
     # TODO15: get optimal new camera matrix, alpha = 0
@@ -194,8 +205,9 @@ def calculateIntrinsic():
     return objpoints, imgpoints, img_size
 
 
-# [Description]
-# This function removes distort effect
+"""
+This function removes distort effect
+"""
 def undistImage():
     config_file = './config'
     cameraCfg = loadConfig(config_file)
@@ -246,15 +258,27 @@ def sendMsg(broker):
     logging.info(f'[DBG] To get 1 testing distorted image => sendMsg:{payload}')
 
 
+"""
+This function calculate the average error for two coordinate of images
+[Description]
+   objpoints  : 3D coordinates of images
+   imgpoints  : 2D coordinates of images from cv2.cornerSubPix
+   imgpoints2 : 2D coordinates of images from cv2.projectPoints
+"""
 def calculateTotalError(objpoints, imgpoints, img_size):
     # get camera matrix and dist matrix by opencv
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
     total_error = 0
     for i in range(len(objpoints)):
+        # Project 3D coordinate to 2D coordinate
+        # Because z axis is always 0, we can do this
         imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+
+        # Clculate the mean square root of sum of squares
         error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
+        
         total_error += error
-    print("total error:", total_error / len(objpoints))
+    print("Avg error:", total_error / len(objpoints))
 
 
 def main():
@@ -291,6 +315,6 @@ def main():
 if __name__ == '__main__':
     # Set debug level
     # Print logging.info by level=logging.INFO
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
     main()
