@@ -237,7 +237,7 @@ def main():
     # TODO 11: transforms
     train_transform = transforms.Compose([
         # may be adding some data augmentations?
-        transforms.Resize((224, 224)),
+#        transforms.Resize((224, 224)),
         transforms.GaussianBlur(21, 20),
 #        transforms.ColorJitter(brightness=(0.5, 1.2), contrast=(0.5, 1.2)),
         transforms.ToTensor(),
