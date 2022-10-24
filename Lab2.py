@@ -35,7 +35,7 @@ class Net(nn.Module):
         self.conv12 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
         self.conv13 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
 
-        self.fc1 = nn.Linear(in_features=(512 * 7 * 7), out_features=4096)
+        self.fc1 = nn.Linear(in_features=(512 * 8 * 8), out_features=4096)
         self.fc2 = nn.Linear(in_features=4096, out_features=4096)
         self.fc3 = nn.Linear(in_features=4096, out_features=1000)
         self.fc4 = nn.Linear(in_features=1000, out_features=10)
@@ -239,13 +239,14 @@ def main():
         # may be adding some data augmentations?
 #        transforms.Resize((224, 224)),
         transforms.GaussianBlur(21, 20),
-#        transforms.ColorJitter(brightness=(0.5, 1.2), contrast=(0.5, 1.2)),
+        transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
+        transforms.ColorJitter(brightness=(0.5), contrast=(0.5)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
     # ===================
     valid_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+#        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
@@ -298,7 +299,7 @@ def main():
 
         if train_acc[epoch] >= 0.8 and train_acc[epoch] <= 0.85:
             optimizer.param_groups[0]["lr"] = 0.045
-            optimizer.param_groups[0]["momentum"] = 0.18
+            optimizer.param_groups[0]["momentum"] = 0.15
         elif train_acc[epoch] > 0.85 and train_acc[epoch] <= 0.9:
             optimizer.param_groups[0]["lr"] = 0.03
             optimizer.param_groups[0]["momentum"] = 0.06
