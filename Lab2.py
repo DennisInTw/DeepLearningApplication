@@ -36,9 +36,9 @@ class Net(nn.Module):
         self.conv13 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
 
         self.fc1 = nn.Linear(in_features=(512 * 8 * 8), out_features=4096)
-        self.fc2 = nn.Linear(in_features=4096, out_features=4096)
-        self.fc3 = nn.Linear(in_features=4096, out_features=1000)
-        self.fc4 = nn.Linear(in_features=1000, out_features=10)
+        self.fc2 = nn.Linear(in_features=4096, out_features=128)
+        self.fc3 = nn.Linear(in_features=128, out_features=10)
+#        self.fc4 = nn.Linear(in_features=1000, out_features=10)
 #        self.fc5 = nn.Linear(in_features=100, out_features=10)
 #        self.fc6 = nn.Linear(in_features=64, out_features=10)
 #        self.fc7 = nn.Linear(in_features=128, out_features=64)
@@ -105,9 +105,9 @@ class Net(nn.Module):
         # (batch_size, 4096)
         out = self.relu(self.fc2(out))
         # (batch_size, 2048)
-        out = self.relu(self.fc3(out))
+        out = self.fc3(out)
         # (batch_size, 1024)
-        out = self.fc4(out)
+#        out = self.fc4(out)
         # (batch_size, 512)
 #        out = self.fc5(out)
         # (batch_size, 256)
@@ -131,13 +131,13 @@ def calc_acc(output, target):
     # output : (batch_size, 10) ==> (batch_size, 1) ==> get index : (batch_size, 1)
     predicted = torch.max(output, 1)[1]
     num_samples = target.size(0)
-    num_correct = (predicted == target).sum().item()
+    num_correct = (predicted == target).float().sum().item()
 #    print((predicted == target))
 #    print((predicted == target).sum())
 #    print((predicted == target).sum().item())
     return num_correct / num_samples
 
-
+train_flag = 0
 def training(model, device, train_loader, criterion, optimizer):
     # ===============================
     # TODO 3: switch the model to training mode
@@ -146,6 +146,7 @@ def training(model, device, train_loader, criterion, optimizer):
     # ===============================
     train_acc = 0.0
     train_loss = 0.0
+    global train_flag
 
     for data, target in train_loader:
         data, target = data.to(device), target.to(device)
@@ -157,10 +158,6 @@ def training(model, device, train_loader, criterion, optimizer):
         # =============================================
 
         output = model(data)
-#        print("output ==>")
-#        print(output)
-#        print("target ==>\n")
-#        print(target)
 
         # =================================================
         # TODO 5: loss -> backpropagation -> update weights
@@ -179,7 +176,7 @@ def training(model, device, train_loader, criterion, optimizer):
     return train_acc, train_loss
 
 
-
+valid_flag = 0
 def validation(model, device, valid_loader, criterion):
     # ===============================
     # TODO 6: switch the model to validation mode
@@ -187,6 +184,7 @@ def validation(model, device, valid_loader, criterion):
     # ===============================
     valid_acc = 0.0
     valid_loss = 0.0
+    global valid_flag
 
     # =========================================
     # TODO 7: turn off the gradient calculation
@@ -205,7 +203,6 @@ def validation(model, device, valid_loader, criterion):
 
             # ================================
 
-    print(len(valid_loader))
     valid_acc /= len(valid_loader)
     valid_loss /= len(valid_loader)
 
@@ -240,7 +237,7 @@ def main():
 #        transforms.Resize((224, 224)),
         transforms.GaussianBlur(21, 20),
         transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
-        transforms.ColorJitter(brightness=(0.5), contrast=(0.5)),
+        transforms.ColorJitter(brightness=(0.5), contrast=(0.5), hue=(0.5)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
@@ -301,11 +298,11 @@ def main():
             optimizer.param_groups[0]["lr"] = 0.045
             optimizer.param_groups[0]["momentum"] = 0.15
         elif train_acc[epoch] > 0.85 and train_acc[epoch] <= 0.9:
-            optimizer.param_groups[0]["lr"] = 0.03
-            optimizer.param_groups[0]["momentum"] = 0.06
+            optimizer.param_groups[0]["lr"] = 0.042
+            optimizer.param_groups[0]["momentum"] = 0.010
         elif train_acc[epoch] > 0.9:
-            optimizer.param_groups[0]["lr"] = 0.02
-            optimizer.param_groups[0]["momentum"] = 0.08
+            optimizer.param_groups[0]["lr"] = 0.038
+            optimizer.param_groups[0]["momentum"] = 0.013
         else:
             optimizer.param_groups[0]["lr"] = 0.05
             optimizer.param_groups[0]["momentum"] = 0.2
