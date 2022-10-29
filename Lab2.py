@@ -80,7 +80,7 @@ class Net(nn.Module):
         out = self.pool(out)  # 64
 
         out = self.relu(self.conv5(out))  # 64
-        #out = self.relu(self.conv6(out))
+        out = self.relu(self.conv6(out))
         #out = self.relu(self.conv7(out))
         #out = self.batch_norm3(out)
         #out = self.drop(out)
@@ -204,7 +204,7 @@ def main():
     LEARNING_RATE = 0.01
     MOMENTUM = 0.5
     BATCH_SIZE = 32
-    EPOCHS = 60
+    EPOCHS = 30
     TRAIN_DATA_PATH = '../data/lab2/data/train/'
     VALID_DATA_PATH = '../data/lab2/data/valid/'
     MODEL_PATH = "./lab2/model"
@@ -217,7 +217,7 @@ def main():
         # may be adding some data augmentations?
         #ransforms.Resize((224, 224)),
         transforms.GaussianBlur(21),
-        #transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
+        transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
         transforms.ColorJitter(brightness=(0.1), contrast=(1.5), hue=(0.5)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
@@ -287,11 +287,16 @@ def main():
     # TODO 16: draw accuracy and loss pictures
     # lab2_teamXX_accuracy.png, lab2_teamXX_loss.png
     # hint: plt.plot
-    #plt.plot(ep, train_acc)
     plt.plot(train_acc, label="Train")
     plt.plot(valid_acc, label="Validation")
     plt.xlabel('epoch')
     plt.ylabel('accuracy')
+    plt.legend()
+    plt.show()
+    plt.plot(train_loss, label="Train")
+    plt.plot(valid_loss, label="Validation")
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
     plt.legend()
     plt.show()
 
