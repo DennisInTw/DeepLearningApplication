@@ -1,8 +1,10 @@
 import os
 
+import numpy
 import numpy as np
 import torch
 import torch.nn as nn
+import torchvision.utils
 from torchvision import transforms, datasets
 import matplotlib.pyplot as plt
 import logging
@@ -16,7 +18,7 @@ class Net(nn.Module):
         # TODO 1: build your network
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.drop = nn.Dropout2d(0.025)
+        self.drop = nn.Dropout2d(0.075)
 
         self.conv0 = nn.Conv2d(in_channels=3, out_channels=3, kernel_size=35, stride=1, padding=1)
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=72, kernel_size=3, stride=1, padding=1)
@@ -73,27 +75,27 @@ class Net(nn.Module):
 
         out = self.relu(self.conv3(out))  # 128
         out = self.relu(self.conv4(out))
-        #out = self.batch_norm2(out)
-        #out = self.drop(out)
+        out = self.batch_norm2(out)
+        out = self.drop(out)
         out = self.pool(out)  # 64
 
         out = self.relu(self.conv5(out))  # 64
-        out = self.relu(self.conv6(out))
-        out = self.relu(self.conv7(out))
+        #out = self.relu(self.conv6(out))
+        #out = self.relu(self.conv7(out))
         #out = self.batch_norm3(out)
         #out = self.drop(out)
         out = self.pool(out)  # 32
 
         out = self.relu(self.conv8(out))  # 32
-        out = self.relu(self.conv9(out))
-        out = self.relu(self.conv10(out))
-        out = self.batch_norm4(out)
-        out = self.drop(out)
+        #out = self.relu(self.conv9(out))
+        #out = self.relu(self.conv10(out))
+        #out = self.batch_norm4(out)
+        #out = self.drop(out)
         out = self.pool(out)  # 16
 
         out = self.relu(self.conv11(out))  # 16
         #out = self.relu(self.conv12(out))
-        out = self.relu(self.conv13(out))
+        #out = self.relu(self.conv13(out))
         out = self.pool(out)  # 8
 
         out = torch.flatten(out, 1)
@@ -104,10 +106,16 @@ class Net(nn.Module):
         return out
 
 
-def calc_acc(output, target):
+def calc_acc(output, target, mode):
     predicted = torch.max(output, 1)[1]
     num_samples = target.size(0)
     num_correct = (predicted == target).sum().item()
+
+    #if mode == "train":
+    #    print("predicted >>")
+    #    print(predicted)
+    #    print("target >>")
+    #    print(target)
 
     return num_correct / num_samples
 
@@ -139,7 +147,7 @@ def training(model, device, train_loader, criterion, optimizer):
         loss.backward()       # Determine the deviation of loss function w.r.t. weight/bias for each layer
         optimizer.step()      # Update the values of weight/bias for each layer
         # =================================================
-        train_acc += calc_acc(output, target)
+        train_acc += calc_acc(output, target, "train")
         train_loss += loss.item()
 
     train_acc /= len(train_loader)
@@ -147,7 +155,7 @@ def training(model, device, train_loader, criterion, optimizer):
 
     return train_acc, train_loss
 
-def validation(model, device, valid_loader, criterion):
+def validation(model, device, valid_loader, criterion, batch_size):
     # ===============================
     # TODO 6: switch the model to validation mode
     model.train(False)
@@ -166,10 +174,14 @@ def validation(model, device, valid_loader, criterion):
 
             # ================================
             # TODO 8: calculate accuracy, loss
-            valid_acc += calc_acc(output, target)
+            valid_acc += calc_acc(output, target, "valid")
             loss = criterion(output, target)
             valid_loss += loss.item()
 
+            # Show images
+            #grid = torchvision.utils.make_grid(data)
+            #images = torchvision.transforms.ToPILImage()(grid)
+            #images.show()
             # ================================
 
     valid_acc /= len(valid_loader)
@@ -204,7 +216,7 @@ def main():
     train_transform = transforms.Compose([
         # may be adding some data augmentations?
         #ransforms.Resize((224, 224)),
-        transforms.GaussianBlur(17),
+        transforms.GaussianBlur(21),
         #transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
         transforms.ColorJitter(brightness=(0.1), contrast=(1.5), hue=(0.5)),
         transforms.ToTensor(),
@@ -234,7 +246,7 @@ def main():
 
     # ============================
     # TODO 13 : set up dataloaders
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, pin_memory=True)
     valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=BATCH_SIZE, num_workers=2, pin_memory=True)
     # ============================
 
@@ -261,7 +273,7 @@ def main():
         print(f'epoch {epoch} start...')
 
         train_acc[epoch], train_loss[epoch] = training(model, device, train_loader, criterion, optimizer)
-        valid_acc[epoch], valid_loss[epoch] = validation(model, device, valid_loader, criterion)
+        valid_acc[epoch], valid_loss[epoch] = validation(model, device, valid_loader, criterion, BATCH_SIZE)
 
         print(f'epoch={epoch} train_acc={train_acc[epoch]} train_loss={train_loss[epoch]} valid_acc={valid_acc[epoch]} valid_loss={valid_loss[epoch]}')
     print('Training finished')
