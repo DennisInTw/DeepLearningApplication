@@ -19,14 +19,12 @@ class Net(nn.Module):
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.drop = nn.Dropout2d(0.075)
-        self.drop2 = nn.Dropout2d(0.1)
 
-        self.conv0 = nn.Conv2d(in_channels=3, out_channels=3, kernel_size=35, stride=1, padding=1)
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=128, out_channels=96, kernel_size=3, stride=1, padding=1)
-        self.batch_norm1 = nn.BatchNorm2d(num_features=96)
+        self.batch_norm1 = nn.BatchNorm2d(num_features=128)
 
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=96, kernel_size=3, stride=1, padding=1)
         self.conv4 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
         self.conv5 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
         self.batch_norm2 = nn.BatchNorm2d(num_features=96)
@@ -67,15 +65,14 @@ class Net(nn.Module):
         # out = self.relu(self.conv1(x))
         # (batch_size, 64, 256, 256)
 
-        #out = self.relu(self.conv0(x))
         out = self.relu(self.conv1(x))  # 256
         out = self.relu(self.conv2(out))
-        out = self.relu(self.conv3(out))
         out = self.batch_norm1(out)
         out = self.drop(out)
         out = self.pool(out)  # 128
 
-        out = self.relu(self.conv4(out))  # 128
+        out = self.relu(self.conv3(out)) # 128
+        out = self.relu(self.conv4(out))
         out = self.relu(self.conv5(out))
         out = self.batch_norm2(out)
         out = self.drop(out)
@@ -84,18 +81,18 @@ class Net(nn.Module):
         out = self.relu(self.conv6(out))  # 64
         out = self.relu(self.conv7(out))
         out = self.batch_norm3(out)
-        out = self.drop2(out)
+        out = self.drop(out)
         out = self.pool(out)  # 32
 
         out = self.relu(self.conv8(out))  # 32
         out = self.relu(self.conv9(out))
-        #out = self.relu(self.conv10(out))
-        #out = self.batch_norm4(out)
-        #out = self.drop(out)
+        out = self.relu(self.conv10(out))
+        out = self.batch_norm4(out)
+        out = self.drop(out)
         out = self.pool(out)  # 16
 
         out = self.relu(self.conv11(out))  # 16
-        out = self.relu(self.conv12(out))
+        #out = self.relu(self.conv12(out))
         #out = self.relu(self.conv13(out))
         out = self.pool(out)  # 8
 
@@ -204,14 +201,14 @@ def main():
     # TODO 10: hyperparameters
     # you can add your parameters here
     LEARNING_RATE = 0.01
-    MOMENTUM = 0.3
+    MOMENTUM = 0.2
     BATCH_SIZE = 16
-    EPOCHS = 60
+    EPOCHS = 30
     TRAIN_DATA_PATH = '../data/lab2/data/train/'
     VALID_DATA_PATH = '../data/lab2/data/valid/'
     MODEL_PATH = "./result/model.pt"
-    ACC_PIC_PATH = "./result/acc.png"
-    LOSS_PIC_PATH = "./result/loss.png"
+    ACC_PIC_PATH = "./result/Accuracy.png"
+    LOSS_PIC_PATH = "./result/Loss.png"
 
     # ========================
 
@@ -223,7 +220,7 @@ def main():
         transforms.GaussianBlur(21),
         transforms.RandomHorizontalFlip(),
         transforms.RandomAffine(degrees=90, scale=(0.5, 2), shear=(0, 0, 0, 45)),
-        transforms.ColorJitter(brightness=(1.2), contrast=(1.5), hue=(0.5)),
+        transforms.ColorJitter(brightness=(1.0), contrast=(0.5), hue=(0.5)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
@@ -292,6 +289,7 @@ def main():
     # TODO 16: draw accuracy and loss pictures
     # lab2_teamXX_accuracy.png, lab2_teamXX_loss.png
     # hint: plt.plot
+    plt.title("Training: 280      Validation: 40")
     plt.plot(train_acc, label="Train")
     plt.plot(valid_acc, label="Validation")
     plt.xlabel('epoch')
@@ -300,6 +298,7 @@ def main():
     plt.savefig(ACC_PIC_PATH)
     plt.close()
     #plt.show()
+    plt.title("Training: 280      Validation: 40")
     plt.plot(train_loss, label="Train")
     plt.plot(valid_loss, label="Validation")
     plt.xlabel('epoch')
