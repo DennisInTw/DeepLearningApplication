@@ -19,22 +19,23 @@ class Net(nn.Module):
         self.relu = nn.ReLU()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.drop = nn.Dropout2d(0.075)
+        self.drop2 = nn.Dropout2d(0.1)
 
         self.conv0 = nn.Conv2d(in_channels=3, out_channels=3, kernel_size=35, stride=1, padding=1)
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=72, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=72, out_channels=72, kernel_size=3, stride=1, padding=1)
-        self.batch_norm1 = nn.BatchNorm2d(num_features=72)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=128, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=96, kernel_size=3, stride=1, padding=1)
+        self.batch_norm1 = nn.BatchNorm2d(num_features=96)
 
-        self.conv3 = nn.Conv2d(in_channels=72, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.batch_norm2 = nn.BatchNorm2d(num_features=64)
+        self.conv4 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
+        self.batch_norm2 = nn.BatchNorm2d(num_features=96)
 
-        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv6 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv7 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.batch_norm3 = nn.BatchNorm2d(num_features=64)
+        self.conv6 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
+        self.conv7 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=1, padding=1)
+        self.batch_norm3 = nn.BatchNorm2d(num_features=96)
 
-        self.conv8 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(in_channels=96, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.conv9 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.conv10 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.batch_norm4 = nn.BatchNorm2d(num_features=128)
@@ -44,8 +45,8 @@ class Net(nn.Module):
         self.conv13 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.batch_norm5 = nn.BatchNorm2d(num_features=128)
 
-        self.fc1 = nn.Linear(in_features=(128 * 8 * 8), out_features=1024)
-        self.fc2 = nn.Linear(in_features=1024, out_features=10)
+        self.fc1 = nn.Linear(in_features=(128 * 8 * 8), out_features=4096)
+        self.fc2 = nn.Linear(in_features=4096, out_features=128)
         self.fc3 = nn.Linear(in_features=128, out_features=10)
         self.fc4 = nn.Linear(in_features=1000, out_features=10)
 #        self.fc5 = nn.Linear(in_features=100, out_features=10)
@@ -69,39 +70,40 @@ class Net(nn.Module):
         #out = self.relu(self.conv0(x))
         out = self.relu(self.conv1(x))  # 256
         out = self.relu(self.conv2(out))
+        out = self.relu(self.conv3(out))
         out = self.batch_norm1(out)
         out = self.drop(out)
         out = self.pool(out)  # 128
 
-        out = self.relu(self.conv3(out))  # 128
-        out = self.relu(self.conv4(out))
+        out = self.relu(self.conv4(out))  # 128
+        out = self.relu(self.conv5(out))
         out = self.batch_norm2(out)
         out = self.drop(out)
         out = self.pool(out)  # 64
 
-        out = self.relu(self.conv5(out))  # 64
-        out = self.relu(self.conv6(out))
-        #out = self.relu(self.conv7(out))
-        #out = self.batch_norm3(out)
-        #out = self.drop(out)
+        out = self.relu(self.conv6(out))  # 64
+        out = self.relu(self.conv7(out))
+        out = self.batch_norm3(out)
+        out = self.drop2(out)
         out = self.pool(out)  # 32
 
         out = self.relu(self.conv8(out))  # 32
-        #out = self.relu(self.conv9(out))
+        out = self.relu(self.conv9(out))
         #out = self.relu(self.conv10(out))
         #out = self.batch_norm4(out)
         #out = self.drop(out)
         out = self.pool(out)  # 16
 
         out = self.relu(self.conv11(out))  # 16
-        #out = self.relu(self.conv12(out))
+        out = self.relu(self.conv12(out))
         #out = self.relu(self.conv13(out))
         out = self.pool(out)  # 8
 
         out = torch.flatten(out, 1)
 
         out = self.relu(self.fc1(out))
-        out = self.fc2(out)
+        out = self.relu(self.fc2(out))
+        out = self.fc3(out)
         # ========================
         return out
 
@@ -202,12 +204,14 @@ def main():
     # TODO 10: hyperparameters
     # you can add your parameters here
     LEARNING_RATE = 0.01
-    MOMENTUM = 0.5
-    BATCH_SIZE = 32
-    EPOCHS = 30
+    MOMENTUM = 0.3
+    BATCH_SIZE = 16
+    EPOCHS = 60
     TRAIN_DATA_PATH = '../data/lab2/data/train/'
     VALID_DATA_PATH = '../data/lab2/data/valid/'
-    MODEL_PATH = "./lab2/model"
+    MODEL_PATH = "./result/model.pt"
+    ACC_PIC_PATH = "./result/acc.png"
+    LOSS_PIC_PATH = "./result/loss.png"
 
     # ========================
 
@@ -217,8 +221,9 @@ def main():
         # may be adding some data augmentations?
         #ransforms.Resize((224, 224)),
         transforms.GaussianBlur(21),
-        transforms.RandomAffine(degrees=20, shear=(0, 0, 0, 45)),
-        transforms.ColorJitter(brightness=(0.1), contrast=(1.5), hue=(0.5)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomAffine(degrees=90, scale=(0.5, 2), shear=(0, 0, 0, 45)),
+        transforms.ColorJitter(brightness=(1.2), contrast=(1.5), hue=(0.5)),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
@@ -282,7 +287,7 @@ def main():
     # TODO 15: save the model parameters
 #    torch.???
     # ==================================
-
+    torch.save(model.state_dict(), MODEL_PATH)
     # ========================================
     # TODO 16: draw accuracy and loss pictures
     # lab2_teamXX_accuracy.png, lab2_teamXX_loss.png
@@ -292,13 +297,17 @@ def main():
     plt.xlabel('epoch')
     plt.ylabel('accuracy')
     plt.legend()
-    plt.show()
+    plt.savefig(ACC_PIC_PATH)
+    plt.close()
+    #plt.show()
     plt.plot(train_loss, label="Train")
     plt.plot(valid_loss, label="Validation")
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend()
-    plt.show()
+    plt.savefig(LOSS_PIC_PATH)
+    plt.close()
+    #plt.show()
 
     # =========================================
 
