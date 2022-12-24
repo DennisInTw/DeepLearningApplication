@@ -1,3 +1,31 @@
+# Evaluate
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+# 讀取資料庫
+import os
+import shutil
+import pandas as pd
+from glob import glob
+from torch.autograd import Variable
+
+#from tabulate import tabulate
+import random
+import numpy as np
+from scipy import stats
+import heapq
+import time
+from pdb import set_trace as bp
+
+# Homework -- 以 "inference-npy" inference 資料庫並計算準確率
+import os
+import shutil
+import pandas as pd
+from glob import glob
+from torch.autograd import Variable
+
+
 # Convert flac to wav
 from glob import glob
 import os
@@ -507,7 +535,7 @@ def create_dict(files, labels, spk_uniq):
 
 def load_model(model_path):
     model = DeepSpeakerModel(embedding_size=EMBEDDING_SIZE, num_classes=NUM_SPEAKERS)
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0)
+    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.0)
 
     print('=> loading checkpoint')
     checkpoint = torch.load(model_path)
@@ -586,24 +614,171 @@ def do_training():
 
 
     # Retraining
-    ckpt_path = ""
+    ckpt_path = "./pretrained/checkpoint_78.pt"
     if ckpt_path != "":
         model, optimizer = load_model(ckpt_path)
     else:
         model = DeepSpeakerModel(embedding_size=EMBEDDING_SIZE, num_classes=NUM_SPEAKERS)
-        optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0)
+        optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.0)
 
     train(model, train_loader, optimizer)
 
 
+# Evaluate
+class Database():
+    "Simulated data structure"
+
+    def __init__(self, data_num):
+        self.embs = np.ndarray((data_num, 512), dtype=float)
+        self.labels = []
+        self.indices = 0
+
+    def __len__(self):
+        return self.indices
+
+    def insert(self, label, emb, index=None):
+        " Insert testing data "
+
+        self.embs[self.indices] = emb
+        self.labels.append(label)
+        self.indices += 1
+
+    def get_most_similar(self, embTest):
+        testTiles = np.tile(embTest, (self.indices, 1))
+        similarities = np.sum(testTiles * self.embs[0:self.indices], axis=1)
+        max_similarity = np.max(similarities)
+        max_id = np.argmax(similarities)
+        return max_id, max_similarity, self.embs[max_id]
+
+    def get_label_by_id(self, id):
+        return self.labels[id]
+
+
+def get_similarity(embA, embB):  # inner product
+    ans = np.sum(embA * embB)
+    return ans
+
+
+def do_evaluation():
+    # Evaluate
+    model = DeepSpeakerModel(embedding_size=512, num_classes=251)
+    # Load your model
+    checkpoint = torch.load("./pretrained/checkpoint_66.pt", map_location='cpu')
+    model.load_state_dict(checkpoint, False)
+
+    # 讀取資料庫
+    libri = data_catalog("database-npy", pattern='*.npy')
+    new_x = []
+    labels = []
+    model.eval()
+
+    with torch.no_grad():
+        flag = 0
+
+        for i in range(int(len(libri))):
+            new_x = []
+            filename = libri[i:i + 1]['filename'].values[0]
+            filelabel = libri[i:i + 1]['speaker_id'].values[0]
+            x = np.load(filename)
+            if (x.shape[0] > 160):
+                for bias in range(0, x.shape[0] - 160, 160):
+                    clipped_x = x[bias:bias + 160]
+                    new_x.append(clipped_x)
+                    labels.append(filelabel)
+            else:
+                clipped_x = x
+                new_x.append(clipped_x)
+                labels.append(filelabel)
+
+            x = np.array(new_x)
+#            print(x.shape)
+            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
+#            print(x_tensor.shape)
+            embedding = model(x_tensor)
+            if i == 0:
+                temp_embedding = embedding
+            else:
+                temp_embedding = torch.cat((temp_embedding, embedding), 0)
+
+        temp_embedding = temp_embedding.cpu().detach().numpy()
+        labels = np.array(labels)
+        labels = labels.astype("int32")
+#        print(labels.shape)
+#        print(temp_embedding.shape)
+        np.save('emb', temp_embedding)
+        np.save('emb_label', labels)
+
+    database = Database(20000)
+
+    for i in range(len(labels)):
+        test_array, test_label = temp_embedding[i], labels[i]
+        database.insert(test_label, test_array)
+    print("inserting database completed")
+
+
+    # Homework -- 以 "inference-npy" inference 資料庫並計算準確率
+    libri = data_catalog("inference-npy", pattern='*.npy')  # audio/LibriSpeechTest/test-clean-npy
+    infer_labels = []
+    ########## you should write here ########
+    # clipped
+    # model and concat
+    with torch.no_grad():
+        flag = 0
+
+        for i in range(int(len(libri))):
+            new_x = []
+            filename = libri[i:i + 1]['filename'].values[0]
+            filelabel = libri[i:i + 1]['speaker_id'].values[0]
+            x = np.load(filename)
+            if (x.shape[0] > 160):
+                for bias in range(0, x.shape[0] - 160, 160):
+                    clipped_x = x[bias:bias + 160]
+                    new_x.append(clipped_x)
+                    infer_labels.append(filelabel)
+            else:
+                clipped_x = x
+                new_x.append(clipped_x)
+                infer_labels.append(filelabel)
+
+            x = np.array(new_x)
+            #print(x.shape)
+            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
+            #print(x_tensor.shape)
+            embedding = model(x_tensor)
+            if i == 0:
+                infer_embedding = embedding
+            else:
+                infer_embedding = torch.cat((infer_embedding, embedding), 0)
+
+    #print(f"len(infer_labels): {len(infer_labels)} len(new_x): {len(new_x)}")
+    correct = 0
+    for i in range(len(infer_labels)):
+        embTest = infer_embedding[i]
+        #print(f"embTest.shape: {embTest.shape}")
+        max_id, max_similarity, embs = database.get_most_similar(embTest)
+        predicted_label = database.get_label_by_id(max_id)
+        #print(f"label: {infer_labels[i]} predict: {predicted_label}")
+        #print(f"type(infer_labels[i]): {type(infer_labels[i])} type(predicted_label): {type(predicted_label)}")
+        if str(infer_labels[i]) == str(predicted_label):
+            correct = correct + 1
+    print(f"correct : {correct/len(infer_labels)}")
+
+
+
+
+
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    Training = True
-    init()
+    # 0: training  1: evaluation
+    Status = 0
 
-    if Training:
+    if Status == 0:
         do_training()
-
+        init()
+    else:
+        do_evaluation()
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
