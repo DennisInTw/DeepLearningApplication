@@ -310,6 +310,7 @@ class myResNet(nn.Module):
 
         super(myResNet, self).__init__()
 
+        self.drop = nn.Dropout2d(0.1)
         self.relu = ReLU(inplace=True)
         self.inplanes = 64
         self.conv1 = nn.Conv2d(1, 64, kernel_size=5, stride=2, padding=2, bias=False)
@@ -330,7 +331,9 @@ class myResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3])
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, None))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.maxpool = nn.AdaptiveAvgPool2d((1, None))
+        # nn.AdaptiveMaxPool2d
+        self.fc = nn.Linear(64 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -396,31 +399,36 @@ class DeepSpeakerModel(nn.Module):
     def forward(self, x):
 
         x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
+#        x = self.model.bn1(x)
+#        x = self.model.relu(x)
+        #x = self.model.drop(x)
+        x = self.model.maxpool(x)
         x = self.model.layer1(x)
 
-        x = self.model.conv2(x)
-        x = self.model.bn2(x)
-        x = self.model.relu(x)
-        x = self.model.layer2(x)
+#        x = self.model.conv2(x)
+#        x = self.model.bn2(x)
+#        x = self.model.relu(x)
+#        x = self.model.maxpool(x)
+#        x = self.model.layer2(x)
 
-        x = self.model.conv3(x)
-        x = self.model.bn3(x)
-        x = self.model.relu(x)
-        x = self.model.layer3(x)
+#        x = self.model.conv3(x)
+#        x = self.model.bn3(x)
+#        x = self.model.relu(x)
+#        x = self.model.maxpool(x)
+#        x = self.model.layer3(x)
 
-        x = self.model.conv4(x)
-        x = self.model.bn4(x)
-        x = self.model.relu(x)
-        x = self.model.layer4(x)
+#        x = self.model.conv4(x)
+#        x = self.model.bn4(x)
+#        x = self.model.relu(x)
+#        x = self.model.maxpool(x)
+#        x = self.model.layer4(x)
 
-        x = self.model.avgpool(x)
+#        x = self.model.maxpool(x)
         x = x.reshape(x.size(0), -1)
         x = self.model.fc(x)
         self.features = self.l2_norm(x)
         # Multiply by alpha = 10 as suggested in https://arxiv.org/pdf/1703.09507.pdf
-        alpha = 1
+        alpha = 10
         self.features = self.features * alpha
 
         # x = x.resize(int(x.size(0) / 17),17 , 512)
@@ -463,19 +471,21 @@ class stochastic_mini_batch(Dataset):
         # 3. clipped_audio(...)
         # 4. torch.from_numpy(....transpose ((2, 0, 1)))
 
-        anchor_file_name = self.libri.iloc[index, 0]
-        anchor_label = self.libri.iloc[index, 1]
+        anchor_file_name = self.libri[index:index + 1]['filename'].values[0]
+        anchor_label = self.libri[index:index + 1]['speaker_id'].values[0]
+        #anchor_file_name = str(self.libri.iloc[index, 0])
+        #anchor_label = str(self.libri.iloc[index, 1])
 
         # search positive_file, 若找到和anchor file相同,則以下一個index當positive file
         # if true ==> 該id至少有兩個file
         positive_file_name = anchor_file_name
         positive_label = anchor_label
         if str(anchor_label) in self.train_dict:
-            file_nums = len(self.train_dict[anchor_label])
+            file_nums = len(self.train_dict[str(anchor_label)])
             pos_idx = random.randint(0, file_nums-1)
-            if anchor_file_name == self.train_dict[anchor_label][pos_idx]:
+            if anchor_file_name == str(self.train_dict[str(anchor_label)][pos_idx]):
                 pos_idx = (pos_idx + 1) % file_nums  # circular list
-            positive_file_name = self.train_dict[anchor_label][pos_idx]
+            positive_file_name = str(self.train_dict[anchor_label][pos_idx])
 
         # search negative_file and negative_label, 若找到和anchor id相同,則以下一個index當negative id
         id_nums = len(self.unique_speakers_list)
@@ -485,7 +495,11 @@ class stochastic_mini_batch(Dataset):
         negative_label = self.unique_speakers_list[idx]
         file_nums = len(self.train_dict[str(negative_label)])
         neg_idx = random.randint(0, file_nums-1)
-        negative_file_name = self.train_dict[str(negative_label)][neg_idx]
+        negative_file_name = str(self.train_dict[str(negative_label)][neg_idx])
+
+        #print(f"anchor_file_name: {anchor_file_name}\tanchor_label:{anchor_label}")
+        #print(f"positive_file_name: {positive_file_name}")
+        #print(f"negative_file_name: {negative_file_name}\tnegative_label:{negative_label}")
 
         # load npy files
         # data type : float64
@@ -502,15 +516,15 @@ class stochastic_mini_batch(Dataset):
         #print(f"anchor_file.dtype):{anchor_file.dtype}\tpositive_file.dtype:{positive_file.dtype}\tnegative_file.dtype:{negative_file.dtype}")
 
         # convert to torch and do transpose
-        anchor_file = torch.from_numpy(anchor_file)
-        anchor_file = torch.transpose(anchor_file, 0, 1)
-        anchor_file = torch.transpose(anchor_file, 0, 2)
-        positive_file = torch.from_numpy(positive_file)
-        positive_file = torch.transpose(positive_file, 0, 1)
-        positive_file = torch.transpose(positive_file, 0, 2)
-        negative_file = torch.from_numpy(negative_file)
-        negative_file = torch.transpose(negative_file, 0, 1)
-        negative_file = torch.transpose(negative_file, 0, 2)
+        anchor_file = torch.from_numpy(anchor_file.transpose((2, 0, 1)))
+        #anchor_file = torch.transpose(anchor_file, 0, 1)
+        #anchor_file = torch.transpose(anchor_file, 0, 2)
+        positive_file = torch.from_numpy(positive_file.transpose((2, 0, 1)))
+        #positive_file = torch.transpose(positive_file, 0, 1)
+        #positive_file = torch.transpose(positive_file, 0, 2)
+        negative_file = torch.from_numpy(negative_file.transpose((2, 0, 1)))
+        #negative_file = torch.transpose(negative_file, 0, 1)
+        #negative_file = torch.transpose(negative_file, 0, 2)
 
         #print(f"type(anchor_file):{type(anchor_file)}\ttype(positive_file):{type(positive_file)}\ttype(negative_file):{type(negative_file)}")
         #print(f"anchor_file.shape:{anchor_file.shape}\tpositive_file.shape:{positive_file.shape}\tnegative_file.shape:{negative_file.shape}")
@@ -535,7 +549,7 @@ def create_dict(files, labels, spk_uniq):
 
 def load_model(model_path):
     model = DeepSpeakerModel(embedding_size=EMBEDDING_SIZE, num_classes=NUM_SPEAKERS)
-    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.0)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0)
 
     print('=> loading checkpoint')
     checkpoint = torch.load(model_path)
@@ -547,12 +561,153 @@ def load_model(model_path):
                 state[k] = v.cuda()
     return model, optimizer
 
+# Evaluate
+class Database():
+    "Simulated data structure"
+
+    def __init__(self, data_num):
+        self.embs = np.ndarray((data_num, 512), dtype=float)
+        self.labels = []
+        self.indices = 0
+
+    def __len__(self):
+        return self.indices
+
+    def insert(self, label, emb, index=None):
+        " Insert testing data "
+
+        self.embs[self.indices] = emb
+        self.labels.append(label)
+        self.indices += 1
+
+    def get_most_similar(self, embTest):
+        testTiles = np.tile(embTest, (self.indices, 1))
+        similarities = np.sum(testTiles * self.embs[0:self.indices], axis=1)
+        max_similarity = np.max(similarities)
+        max_id = np.argmax(similarities)
+        return max_id, max_similarity, self.embs[max_id]
+
+    def get_label_by_id(self, id):
+        return self.labels[id]
+
+
+def get_similarity(embA, embB):  # inner product
+    ans = np.sum(embA * embB)
+    return ans
+
+
+def do_evaluation(checkpoint_path):
+    model = DeepSpeakerModel(embedding_size=512, num_classes=251)
+    # Load your model
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    model.load_state_dict(checkpoint, strict=False)
+
+    # 讀取資料庫
+    libri = data_catalog("database-npy", pattern='*.npy')
+    new_x = []
+    labels = []
+    model.eval()
+
+    infer_libri = data_catalog("inference-npy", pattern='*.npy')
+    infer_labels = []
+
+    with torch.no_grad():
+        flag = 0
+
+        for i in range(int(len(libri))):
+            new_x = []
+            filename = libri[i:i + 1]['filename'].values[0]
+            filelabel = libri[i:i + 1]['speaker_id'].values[0]
+            x = np.load(filename)
+            if (x.shape[0] > 160):
+                for bias in range(0, x.shape[0] - 160, 160):
+                    clipped_x = x[bias:bias + 160]
+                    new_x.append(clipped_x)
+                    labels.append(filelabel)
+            else:
+                clipped_x = x
+                new_x.append(clipped_x)
+                labels.append(filelabel)
+
+            x = np.array(new_x)
+#            print(x.shape)
+            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
+#            print(x_tensor.shape)
+            embedding = model(x_tensor)
+            if i == 0:
+                temp_embedding = embedding
+            else:
+                temp_embedding = torch.cat((temp_embedding, embedding), 0)
+
+        temp_embedding = temp_embedding.cpu().detach().numpy()
+        labels = np.array(labels)
+        labels = labels.astype("int32")
+#        print(labels.shape)
+#        print(temp_embedding.shape)
+        np.save('emb', temp_embedding)
+        np.save('emb_label', labels)
+
+        for i in range(int(len(infer_libri))):
+            new_x = []
+            filename = infer_libri[i:i + 1]['filename'].values[0]
+            filelabel = infer_libri[i:i + 1]['speaker_id'].values[0]
+            x = np.load(filename)
+            if (x.shape[0] > 160):
+                for bias in range(0, x.shape[0] - 160, 160):
+                    clipped_x = x[bias:bias + 160]
+                    new_x.append(clipped_x)
+                    infer_labels.append(filelabel)
+            else:
+                clipped_x = x
+                new_x.append(clipped_x)
+                infer_labels.append(filelabel)
+
+            x = np.array(new_x)
+            #            print(x.shape)
+            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
+            #            print(x_tensor.shape)
+            embedding = model(x_tensor)
+            if i == 0:
+                infer_embedding = embedding
+            else:
+                infer_embedding = torch.cat((infer_embedding, embedding), 0)
+
+        infer_embedding = infer_embedding.cpu().detach().numpy()
+        infer_labels = np.array(infer_labels)
+        infer_labels = infer_labels.astype("int32")
+
+    database = Database(20000)
+
+    for i in range(len(labels)):
+        test_array, test_label = temp_embedding[i], labels[i]
+        database.insert(test_label, test_array)
+    print("inserting database completed")
+
+    correct = 0
+    for i in range(len(infer_labels)):
+        emb = infer_embedding[i]
+        max_id, max_similarity, max_emb = database.get_most_similar(emb)
+        predicted_label = database.get_label_by_id(max_id)
+        #print(f"infer_labels: {infer_labels[i]} predict: {predicted_label}")
+        #print(f"type(infer_labels[i]): {type(infer_labels[i])} type(predicted_label): {type(predicted_label)}")
+        if infer_labels[i] == predicted_label:
+            correct = correct + 1
+    acc = correct / len(infer_labels)
+    print(f"acc : {acc}\tcorrect:{correct}\tlen(infer_labels):{len(infer_labels)}")
+
+    return acc
+
 
 def train(model, train_loader, optimizer):
+    acc_list = []
+    non_zero_loss_count_list = []
+    total_loss_each_epoch_list = []
     epoch = 0
     model.cuda()
     summary(model, input_size=(1, 160, 64))
     for epoch in range(100):
+        non_zero_loss_count = 0
+        total_loss_each_epoch = 0.0
         model.train()
         for batch_idx, (data_a, data_p, data_n, label_a, label_p, label_n) in tqdm(enumerate(train_loader)):
             data_a, data_p, data_n = data_a.type(torch.FloatTensor), data_p.type(torch.FloatTensor), data_n.type(torch.FloatTensor)
@@ -567,11 +722,22 @@ def train(model, train_loader, optimizer):
             loss.backward()
             optimizer.step()
 
+            if triplet_loss.data.item() != 0.0:
+                non_zero_loss_count = non_zero_loss_count + 1
+            total_loss_each_epoch = total_loss_each_epoch + triplet_loss.data.item()
             print('selected_triplet_loss', triplet_loss.data)
+        non_zero_loss_count_list.append(non_zero_loss_count)
+        total_loss_each_epoch_list.append(total_loss_each_epoch)
         print("epoch:", epoch)
         # torch.save(model.state_dict(),"checkpoint_{}.pt".format(epoch))
         torch.save({'epoch': epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()},
                    "checkpoint_{}.pt".format(epoch))
+
+        acc = do_evaluation('checkpoint_' + str(epoch) + '.pt')
+        acc_list.append(acc)
+        print(acc_list)
+        print(non_zero_loss_count_list)
+        print(total_loss_each_epoch_list)
 
 
 def init():
@@ -614,158 +780,14 @@ def do_training():
 
 
     # Retraining
-    ckpt_path = "./pretrained/checkpoint_78.pt"
+    ckpt_path = ""
     if ckpt_path != "":
         model, optimizer = load_model(ckpt_path)
     else:
         model = DeepSpeakerModel(embedding_size=EMBEDDING_SIZE, num_classes=NUM_SPEAKERS)
-        optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.0)
+        optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0)
 
     train(model, train_loader, optimizer)
-
-
-# Evaluate
-class Database():
-    "Simulated data structure"
-
-    def __init__(self, data_num):
-        self.embs = np.ndarray((data_num, 512), dtype=float)
-        self.labels = []
-        self.indices = 0
-
-    def __len__(self):
-        return self.indices
-
-    def insert(self, label, emb, index=None):
-        " Insert testing data "
-
-        self.embs[self.indices] = emb
-        self.labels.append(label)
-        self.indices += 1
-
-    def get_most_similar(self, embTest):
-        testTiles = np.tile(embTest, (self.indices, 1))
-        similarities = np.sum(testTiles * self.embs[0:self.indices], axis=1)
-        max_similarity = np.max(similarities)
-        max_id = np.argmax(similarities)
-        return max_id, max_similarity, self.embs[max_id]
-
-    def get_label_by_id(self, id):
-        return self.labels[id]
-
-
-def get_similarity(embA, embB):  # inner product
-    ans = np.sum(embA * embB)
-    return ans
-
-
-def do_evaluation():
-    # Evaluate
-    model = DeepSpeakerModel(embedding_size=512, num_classes=251)
-    # Load your model
-    checkpoint = torch.load("./pretrained/checkpoint_66.pt", map_location='cpu')
-    model.load_state_dict(checkpoint, False)
-
-    # 讀取資料庫
-    libri = data_catalog("database-npy", pattern='*.npy')
-    new_x = []
-    labels = []
-    model.eval()
-
-    with torch.no_grad():
-        flag = 0
-
-        for i in range(int(len(libri))):
-            new_x = []
-            filename = libri[i:i + 1]['filename'].values[0]
-            filelabel = libri[i:i + 1]['speaker_id'].values[0]
-            x = np.load(filename)
-            if (x.shape[0] > 160):
-                for bias in range(0, x.shape[0] - 160, 160):
-                    clipped_x = x[bias:bias + 160]
-                    new_x.append(clipped_x)
-                    labels.append(filelabel)
-            else:
-                clipped_x = x
-                new_x.append(clipped_x)
-                labels.append(filelabel)
-
-            x = np.array(new_x)
-#            print(x.shape)
-            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
-#            print(x_tensor.shape)
-            embedding = model(x_tensor)
-            if i == 0:
-                temp_embedding = embedding
-            else:
-                temp_embedding = torch.cat((temp_embedding, embedding), 0)
-
-        temp_embedding = temp_embedding.cpu().detach().numpy()
-        labels = np.array(labels)
-        labels = labels.astype("int32")
-#        print(labels.shape)
-#        print(temp_embedding.shape)
-        np.save('emb', temp_embedding)
-        np.save('emb_label', labels)
-
-    database = Database(20000)
-
-    for i in range(len(labels)):
-        test_array, test_label = temp_embedding[i], labels[i]
-        database.insert(test_label, test_array)
-    print("inserting database completed")
-
-
-    # Homework -- 以 "inference-npy" inference 資料庫並計算準確率
-    libri = data_catalog("inference-npy", pattern='*.npy')  # audio/LibriSpeechTest/test-clean-npy
-    infer_labels = []
-    ########## you should write here ########
-    # clipped
-    # model and concat
-    with torch.no_grad():
-        flag = 0
-
-        for i in range(int(len(libri))):
-            new_x = []
-            filename = libri[i:i + 1]['filename'].values[0]
-            filelabel = libri[i:i + 1]['speaker_id'].values[0]
-            x = np.load(filename)
-            if (x.shape[0] > 160):
-                for bias in range(0, x.shape[0] - 160, 160):
-                    clipped_x = x[bias:bias + 160]
-                    new_x.append(clipped_x)
-                    infer_labels.append(filelabel)
-            else:
-                clipped_x = x
-                new_x.append(clipped_x)
-                infer_labels.append(filelabel)
-
-            x = np.array(new_x)
-            #print(x.shape)
-            x_tensor = Variable(torch.from_numpy(x.transpose((0, 3, 1, 2))).type(torch.FloatTensor).contiguous())
-            #print(x_tensor.shape)
-            embedding = model(x_tensor)
-            if i == 0:
-                infer_embedding = embedding
-            else:
-                infer_embedding = torch.cat((infer_embedding, embedding), 0)
-
-    #print(f"len(infer_labels): {len(infer_labels)} len(new_x): {len(new_x)}")
-    correct = 0
-    for i in range(len(infer_labels)):
-        embTest = infer_embedding[i]
-        #print(f"embTest.shape: {embTest.shape}")
-        max_id, max_similarity, embs = database.get_most_similar(embTest)
-        predicted_label = database.get_label_by_id(max_id)
-        #print(f"label: {infer_labels[i]} predict: {predicted_label}")
-        #print(f"type(infer_labels[i]): {type(infer_labels[i])} type(predicted_label): {type(predicted_label)}")
-        if str(infer_labels[i]) == str(predicted_label):
-            correct = correct + 1
-    print(f"correct : {correct/len(infer_labels)}")
-
-
-
-
 
 
 
@@ -778,7 +800,8 @@ if __name__ == '__main__':
         do_training()
         init()
     else:
-        do_evaluation()
+        acc = do_evaluation("./pretrained/checkpoint_56.pt")
+        print(acc)
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
